@@ -26,7 +26,7 @@ bool desejoON = false;
 bool desejoOFF = false;
 //bool statusON = false;
 //bool statusOFF = false;
-//bool statusONSecador = false;
+bool statusSecador = false;
 //bool statusOFFSecador = false;
 bool valvulaAberta;
 bool statusWifi = false;
@@ -41,13 +41,13 @@ bool statusMqtt = false;
 #define pinoFimdecursoAberto 32
 //#define pinoStatusON 35
 //#define pinoStatusOFF 34
-//#define pinoStatusONSecador 18
+#define pinoStatusSecador 18
 //#define pinoStatusOFFSecador 19 
 
 // OUTPUTs
 #define pinoDesejoON 2 
 #define pinoDesejoOFF 4
-//#define pinoDesejoONSecador 16  // RX2
+#define pinoLigaSecador 16  // RX2
 //#define pinoDesejoOFFSecador 17  // TX2
 #define pinoIN1 13
 #define pinoIN2 12
@@ -322,14 +322,14 @@ void setup() {
 
   pinMode(pinoDesejoOFF, OUTPUT);
   pinMode(pinoDesejoON, OUTPUT);
-  //pinMode(pinoDesejoOFFSecador, OUTPUT);
+  pinMode(pinoLigaSecador, OUTPUT);
   //pinMode(pinoDesejoONSecador, OUTPUT);
   pinMode(pinoIN1, OUTPUT);
   pinMode(pinoIN2, OUTPUT);
 
   //pinMode(pinoStatusON,INPUT_PULLDOWN);
   //pinMode(pinoStatusOFF,INPUT_PULLDOWN);
-  //pinMode(pinoStatusONSecador,INPUT_PULLDOWN);
+  pinMode(pinoStatusSecador,INPUT_PULLDOWN);
   //pinMode(pinoStatusOFFSecador,INPUT_PULLDOWN);
   pinMode(pinoEnergizado, INPUT_PULLDOWN);
   pinMode(pinoLigado, INPUT_PULLDOWN);
@@ -342,7 +342,11 @@ void setup() {
   digitalWrite(pinoDesejoOFF, LOW);
   analogWrite(pinoIN1, 0);
   analogWrite(pinoIN2, 0);
-  //digitalWrite(pinoDesejoONSecador, LOW);
+
+  ledcSetup(0, 5000, 8); // canal, frequencia e resolução do PWM
+  ledcAttachPin(pinoIN1, 0); // pino de saída e canal do PWM
+
+  digitalWrite(pinoLigaSecador, LOW);
   //digitalWrite(pinoDesejoOFFSecador, LOW);
 }
 
