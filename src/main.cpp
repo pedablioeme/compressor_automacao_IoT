@@ -136,8 +136,8 @@ void ligaSecador() {
 
 void fechaValvula() {  // orientação com o professor para fazer o código de fecha e abre válvula 
   if(digitalRead(pinoFimdecursoFechado) == HIGH) {
-    analogWrite(pinoIN1, 150);  //problema do analogWrite com o ESP, não sei se funciona
-    analogWrite(pinoIN2, 0);
+    analogWrite(pinoIN1, 0);  //problema do analogWrite com o ESP, não sei se funciona
+    analogWrite(pinoIN2, 255);
   } 
   else {
     analogWrite(pinoIN1, 0);
@@ -148,8 +148,8 @@ void fechaValvula() {  // orientação com o professor para fazer o código de f
 
 void abreValvula() {
   if(digitalRead(pinoFimdecursoAberto) == HIGH) {
-    analogWrite(pinoIN1, 150);
-    analogWrite(pinoIN2, 0);
+    analogWrite(pinoIN1, 0);
+    analogWrite(pinoIN2, 255);
 
     /*
     PARA LIGAR EM PEQUENOS INTERVALOS
@@ -179,7 +179,8 @@ void estados() {
   switch(estadoAtual){
 
     case DESLIGADO:  //desliga secador e fecha válvula
-    desligaSecador();
+    Serial.println("DESLIGADO");
+    digitalWrite(pinoLigaSecador, LOW);
     fechaValvula();
     if (valvulaAberta == false && statusEnergizado == true){
       mudaEstado(ENERGIZADO);
@@ -188,6 +189,7 @@ void estados() {
 
 
     case ENERGIZADO:  //energizado
+    Serial.println("ENERGIZADO");
     contadorTentativas = 0;
     if(desejoON == true){
       mudaEstado(ACIONA_ON);
@@ -196,6 +198,7 @@ void estados() {
 
 
     case ACIONA_ON:  // aperta o botão ON por 2s (aciona relé liga)
+    Serial.println("ACIONA");
     desejoON = false; //é isso mesmo? nesse caso funcionaria, mas supondo que alguém por insistencia clicasse mais de uma vez no desejoON, o resultado seria de mais usuários catalogados e esse mesmo usuário teria de clicar mais de uma vez no botão desejoOFF para que eventuamente esse valor chegue a 0 em seu funcionamento natural. 
     digitalWrite(pinoDesejoON, HIGH);
     if(millis() - marcaTempo >= 2000) {
@@ -205,6 +208,7 @@ void estados() {
 
 
     case DESACIONA_ON:    // solta o botão (desacionao o relé liga). se não ligar em 5s, liga denovo. se em 4 tentativas não der certo, ativo modo falha
+    Serial.println("DESACIONA");
     digitalWrite(pinoDesejoON, LOW);
     if(statusLigado == true){
       contadorTentativas = 0;
@@ -223,12 +227,14 @@ void estados() {
 
 
     case LIGA_SECADOR:  // liga secador
-    ligaSecador(); //digitalWrite(pinoOnOffSecador, HIGH);
+    Serial.println("LIGA SECADOR");
+    digitalWrite(pinoLigaSecador, HIGH);
     mudaEstado(AGUARDA_ALIVIO);
     break;
 
 
     case AGUARDA_ALIVIO:  // aguarda o compressor chegar em estado de alivio de pressão
+    Serial.println("AGUARDA ALÍVIO");
     if(statusAlivio == true) {
       mudaEstado(ABRE_VALVULA);
     }
@@ -236,6 +242,7 @@ void estados() {
 
 
     case ABRE_VALVULA:  // abre a valvula de ar do compressor
+    Serial.println("ABRE VÁLVULA");
     abreValvula();
     if(valvulaAberta == true){
       mudaEstado(EM_FUNCIONAMENTO);
@@ -244,6 +251,7 @@ void estados() {
 
 
     case EM_FUNCIONAMENTO:  // colocar posteriormente: if(horarioatual >= 23h) {numero de usuários = 0} e variações usando RTC
+    Serial.println("EM FUNCIONAMENTO");
     if(desejoON == true) {
       numeroUsuarios ++;
       //desejoON = false;
@@ -259,6 +267,7 @@ void estados() {
 
 
     case ACIONA_OFF:  // aperta o botão OFF por 2s (aciona relé de desliga)
+    Serial.println("ACIONA OFF");
     desejoON = false; // VERIFICAR DEPOIS O AJUSTE PARA USAR BOTAO DE PULSO NO SCADABR
     digitalWrite(pinoDesejoOFF, HIGH);
     if(millis() - marcaTempo >= 2000) {
@@ -268,12 +277,14 @@ void estados() {
 
 
     case DESACIONA_OFF:  // solta o botão off (desaciona o relé de desliga)
+    Serial.println("DESACIONA OFF");
     digitalWrite(pinoDesejoOFF, LOW);
     mudaEstado(FECHA_VALVULA);
     break;
 
 
     case FECHA_VALVULA:  // fecha a válvula de ar do compressor
+    Serial.println("FECHA VÁLVULA");
     fechaValvula();
     if(valvulaAberta == false){
       mudaEstado(DESLIGA_SECADOR);
@@ -282,7 +293,8 @@ void estados() {
 
 
     case DESLIGA_SECADOR:
-    desligaSecador(); //digitalWrite(pinoOnOffSecador, LOW);
+    Serial.println("DESLIGA SECADOR");
+    digitalWrite(pinoLigaSecador, LOW);
     if(statusLigado == false){
       contadorTentativas = 0;
       mudaEstado(ENERGIZADO);
@@ -299,12 +311,12 @@ void estados() {
 
 
     case FALHA_PARTIDA:
-
+    Serial.println("FALHA DE PARTIDA");
     break;
 
 
     case FALHA_DESLIGAMENTO:
-
+    Serial.println("FALHA NO DESLIGAMENTO");
     break;
   }
 }
@@ -399,8 +411,8 @@ void loop() {
       //doc["OFF"] = statusOFF;
       //doc["SecadorON"] = statusONSecador;
       //doc["SecadorOFF"] = statusOFFSecador;
-      doc["desejoON"] = desejoON; // desejoON e desejoOFF apenas chegam e não são enviados
-      doc["desejoOFF"] = desejoOFF;
+      //doc["desejoON"] = desejoON; // desejoON e desejoOFF apenas chegam e não são enviados
+      //doc["desejoOFF"] = desejoOFF;
       doc["Energizado"] = statusEnergizado;
       doc["Ligado"] = statusLigado;
       doc["Alivio"] = statusAlivio;
