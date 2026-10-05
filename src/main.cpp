@@ -26,7 +26,7 @@ bool desejoON = false;
 bool desejoOFF = false;
 //bool statusON = false;
 //bool statusOFF = false;
-bool statusSecador = false;
+bool statusSecador = false; 
 //bool statusOFFSecador = false;
 bool valvulaAberta;
 bool statusWifi = false;
@@ -41,7 +41,7 @@ bool statusMqtt = false;
 #define pinoFimdecursoAberto 32
 //#define pinoStatusON 35
 //#define pinoStatusOFF 34
-#define pinoStatusSecador 18
+#define pinoStatusSecador 18  // VERIFICAR SE ESSE PINO É NECESSÁRIO, POIS AO REALIZAR AO LIGAR OU DESLIGAR O SECADOR A VARIÁVEL statusSecador JÁ É ATUALIZADA. APENAS SE ALGUÉM MANUALMENTE FOR LIGAR O SECADOR, ENTÃO O PINO SERIA NECESSÁRIO PARA DETECTAR SE O SECADOR ESTÁ LIGADO OU DESLIGADO.
 //#define pinoStatusOFFSecador 19 
 
 // OUTPUTs
@@ -181,6 +181,7 @@ void estados() {
     case DESLIGADO:  //desliga secador e fecha válvula
     Serial.println("DESLIGADO");
     digitalWrite(pinoLigaSecador, LOW);
+    //statusSecador = false;
     fechaValvula();
     if (valvulaAberta == false && statusEnergizado == true){
       mudaEstado(ENERGIZADO);
@@ -229,6 +230,7 @@ void estados() {
     case LIGA_SECADOR:  // liga secador
     Serial.println("LIGA SECADOR");
     digitalWrite(pinoLigaSecador, HIGH);
+    //statusSecador = true;
     mudaEstado(AGUARDA_ALIVIO);
     break;
 
@@ -295,6 +297,7 @@ void estados() {
     case DESLIGA_SECADOR:
     Serial.println("DESLIGA SECADOR");
     digitalWrite(pinoLigaSecador, LOW);
+    //statusSecador = false;
     if(statusLigado == false){
       contadorTentativas = 0;
       mudaEstado(ENERGIZADO);
