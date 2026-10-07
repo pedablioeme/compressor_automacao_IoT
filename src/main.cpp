@@ -3,9 +3,12 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-// --- Configurações de MQTT ---
-const char* mqtt_server = "broker.hivemq.com";
-const char* topic_leds = "ifscaru/compressor/comando";
+// --- Configurações de MQTT (Mosquitto na Orange Pi PC) ---
+const char* mqtt_server = "10.22.14.100";   // IP fixo da Orange Pi no laboratório
+const int   mqtt_port   = 1883;             // sem TLS
+const char* mqtt_user   = "compressor";    // o mesmo criado com mosquitto_passwd
+const char* mqtt_pass   = "orange1234";
+const char* topic_leds   = "ifscaru/compressor/comando";
 const char* topic_status = "ifscaru/compressor/status";
 
 WiFiClient espClient;
@@ -114,7 +117,7 @@ boolean reconnect() {
   String clientId = "ESP32Client-";
   clientId += String(random(0xffff), HEX);
 
-  if (client.connect(clientId.c_str())) {
+  if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
     Serial.println("Conectado!");
     client.subscribe(topic_leds);
     return true;
@@ -329,7 +332,7 @@ void setup() {
   Serial.begin(115200);
 
   setup_wifi();
-  client.setServer(mqtt_server, 1883);
+  client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
 
   tempoEstados_Leitura = millis();
