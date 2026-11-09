@@ -1,7 +1,9 @@
-const int ledEnergizado = 5;
-const int ledLigado = 4;
-const int ledAlivio = 14;
-const int ledSobrecarga = 12;
+#include <Arduino.h>
+
+const int ledEnergizado = 12;
+const int ledLigado = 19;
+const int ledAlivio = 18;
+const int ledSobrecarga = 5;
 const int botaoSobrecarga = 13;
 const int ligar = 15;
 const int desligar = 16;

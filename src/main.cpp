@@ -1,7 +1,7 @@
-#include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <ZMPT101B.h>
 
 // --- Configurações de MQTT ---
 const char* mqtt_server = "broker.hivemq.com";
@@ -28,7 +28,7 @@ bool desejoOFF = false;
 //bool statusOFF = false;
 bool statusSecador = false; 
 //bool statusOFFSecador = false;
-bool valvulaAberta;
+bool valvulaAberta = true;
 bool statusWifi = false;
 bool statusMqtt = false;
 
@@ -37,11 +37,11 @@ bool statusMqtt = false;
 #define pinoLigado 27
 #define pinoAlivio 26
 #define pinoSobrecarga 25
-#define pinoFimdecursoFechado 33
-#define pinoFimdecursoAberto 32
+#define pinoFimdecursoFechado 5
+#define pinoFimdecursoAberto 18
 //#define pinoStatusON 35
 //#define pinoStatusOFF 34
-#define pinoStatusSecador 18  // VERIFICAR SE ESSE PINO É NECESSÁRIO, POIS AO REALIZAR AO LIGAR OU DESLIGAR O SECADOR A VARIÁVEL statusSecador JÁ É ATUALIZADA. APENAS SE ALGUÉM MANUALMENTE FOR LIGAR O SECADOR, ENTÃO O PINO SERIA NECESSÁRIO PARA DETECTAR SE O SECADOR ESTÁ LIGADO OU DESLIGADO.
+#define pinoStatusSecador 19  // VERIFICAR SE ESSE PINO É NECESSÁRIO, POIS AO REALIZAR AO LIGAR OU DESLIGAR O SECADOR A VARIÁVEL statusSecador JÁ É ATUALIZADA. APENAS SE ALGUÉM MANUALMENTE FOR LIGAR O SECADOR, ENTÃO O PINO SERIA NECESSÁRIO PARA DETECTAR SE O SECADOR ESTÁ LIGADO OU DESLIGADO.
 //#define pinoStatusOFFSecador 19 
 
 // OUTPUTs
@@ -51,6 +51,19 @@ bool statusMqtt = false;
 //#define pinoDesejoOFFSecador 17  // TX2
 #define pinoIN1 13
 #define pinoIN2 12
+
+// SENSOR ZMPT101B
+#define sensi1 645.00f
+#define sensi2 610.00f
+#define sensi3 662.00f
+
+ZMPT101B fase1(34, 60.0);
+ZMPT101B fase2(35, 60.0);
+ZMPT101B fase3(32, 60.0);
+
+float fase1Media = 0.0;
+float fase2Media = 0.0;
+float fase3Media = 0.0;
 
 enum Estados {
   DESLIGADO = 0,       // case 0
@@ -126,16 +139,8 @@ boolean reconnect() {
   }
 }
 
-void desligaSecador() {
-  //realizar função
-}
-
-void ligaSecador() {
-  //realizar função
-}
-
 void fechaValvula() {  // orientação com o professor para fazer o código de fecha e abre válvula 
-  if(digitalRead(pinoFimdecursoFechado) == HIGH) {
+  if(digitalRead(pinoFimdecursoFechado) == LOW) {
     analogWrite(pinoIN1, 0);  //problema do analogWrite com o ESP, não sei se funciona
     analogWrite(pinoIN2, 255);
   } 
@@ -147,7 +152,7 @@ void fechaValvula() {  // orientação com o professor para fazer o código de f
 }
 
 void abreValvula() {
-  if(digitalRead(pinoFimdecursoAberto) == HIGH) {
+  if(digitalRead(pinoFimdecursoAberto) == LOW) {
     analogWrite(pinoIN1, 0);
     analogWrite(pinoIN2, 255);
 
@@ -324,6 +329,34 @@ void estados() {
   }
 }
 
+void leTensao() {
+  // Zeramos a variável voltageMean para iniciar novo ciclo de leituras.
+  fase1Media = 0;
+  fase2Media = 0;
+  fase3Media = 0;
+
+  // Fazemos 5 leituras de tensao para fazer a media, isso e feito para evitar surtos no rele.
+  for (int count = 0; count < 5; count++) {
+    float tensao1 = fase1.getRmsVoltage();
+    float tensao2 = fase2.getRmsVoltage();
+    float tensao3 = fase3.getRmsVoltage();
+    fase1Media += tensao1;
+    fase2Media += tensao2;
+    fase3Media += tensao3;
+  }
+
+  // Se o valor medio das leituras estiver dentro da faixa abaixo, acionamos o rele, caso contrario desativamos.
+  fase1Media = fase1Media / 5;
+  fase2Media = fase2Media / 5;
+  fase3Media = fase3Media / 5;
+
+  Serial.print("Tensao VR:");
+  Serial.print(fase1Media);
+  Serial.print("   Tensao VS:");
+  Serial.print(fase2Media);
+  Serial.print("   Tensao VT:");
+  Serial.println(fase3Media);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -350,8 +383,8 @@ void setup() {
   pinMode(pinoLigado, INPUT_PULLDOWN);
   pinMode(pinoAlivio, INPUT_PULLDOWN);
   pinMode(pinoSobrecarga, INPUT_PULLDOWN);
-  pinMode(pinoFimdecursoAberto, INPUT_PULLDOWN);
-  pinMode(pinoFimdecursoFechado, INPUT_PULLDOWN);
+  pinMode(pinoFimdecursoAberto, INPUT_PULLUP);
+  pinMode(pinoFimdecursoFechado, INPUT_PULLUP);
 
   digitalWrite(pinoDesejoON, LOW);
   digitalWrite(pinoDesejoOFF, LOW);
@@ -363,6 +396,10 @@ void setup() {
 
   digitalWrite(pinoLigaSecador, LOW);
   //digitalWrite(pinoDesejoOFFSecador, LOW);
+
+  fase1.setSensitivity(sensi1);
+  fase2.setSensitivity(sensi2);
+  fase3.setSensitivity(sensi3);
 }
 
 void loop() {
@@ -380,7 +417,7 @@ void loop() {
     statusMqtt = true;
   }
 
-
+  leTensao();
 // timer da execução da máquina de estados e leitura dos status.
   if (millis() - tempoEstados_Leitura > 50) {
     tempoEstados_Leitura = millis();
@@ -422,6 +459,9 @@ void loop() {
       doc["Sobrecarga"] = statusSobrecarga;
       doc["valvulaAberta"] = valvulaAberta;
       doc["Estado"] = estadoAtual;
+      doc["VR"] = fase1Media;
+      doc["VS"] = fase2Media;
+      doc["VT"] = fase3Media;
 
       String payloadJSON;
       serializeJson(doc, payloadJSON);
