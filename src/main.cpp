@@ -1,7 +1,10 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
-#include <ZMPT101B.h>
+#include <ZMPT101B.h>  // sensor tensão
+#include <DHTesp.h>    // sensor temperatura e umidade
+#include <Wire.h>
+#include <RTClib.h>
 
 // --- Configurações de MQTT ---
 const char* mqtt_server = "broker.hivemq.com";
@@ -24,6 +27,8 @@ bool statusAlivio = false;
 bool statusSobrecarga = false;
 bool desejoON = false;
 bool desejoOFF = false;
+bool desejoONantes = false;
+bool desejoOFFantes = false;
 //bool statusON = false;
 //bool statusOFF = false;
 bool statusSecador = false; 
@@ -43,6 +48,7 @@ bool statusMqtt = false;
 //#define pinoStatusOFF 34
 #define pinoStatusSecador 19  // VERIFICAR SE ESSE PINO É NECESSÁRIO, POIS AO REALIZAR AO LIGAR OU DESLIGAR O SECADOR A VARIÁVEL statusSecador JÁ É ATUALIZADA. APENAS SE ALGUÉM MANUALMENTE FOR LIGAR O SECADOR, ENTÃO O PINO SERIA NECESSÁRIO PARA DETECTAR SE O SECADOR ESTÁ LIGADO OU DESLIGADO.
 //#define pinoStatusOFFSecador 19 
+#define pinoDHT 33  // pino do sensor DHT
 
 // OUTPUTs
 #define pinoDesejoON 2 
@@ -51,6 +57,14 @@ bool statusMqtt = false;
 //#define pinoDesejoOFFSecador 17  // TX2
 #define pinoIN1 13
 #define pinoIN2 12
+
+// RTC
+RTC_DS1307 rtc; //Objeto rtc da classe DS1307
+DateTime agora;
+
+// SENSOR DHT
+DHTesp dht;
+TempAndHumidity leitura;
 
 // SENSOR ZMPT101B
 #define sensi1 645.00f
@@ -154,7 +168,7 @@ void fechaValvula() {  // orientação com o professor para fazer o código de f
 void abreValvula() {
   if(digitalRead(pinoFimdecursoAberto) == LOW) {
     analogWrite(pinoIN1, 0);
-    analogWrite(pinoIN2, 255);
+    analogWrite(pinoIN2, 100);
 
     /*
     PARA LIGAR EM PEQUENOS INTERVALOS
@@ -207,6 +221,22 @@ void estados() {
     Serial.println("ACIONA");
     desejoON = false; //é isso mesmo? nesse caso funcionaria, mas supondo que alguém por insistencia clicasse mais de uma vez no desejoON, o resultado seria de mais usuários catalogados e esse mesmo usuário teria de clicar mais de uma vez no botão desejoOFF para que eventuamente esse valor chegue a 0 em seu funcionamento natural. 
     digitalWrite(pinoDesejoON, HIGH);
+    if(desejoONantes == false && desejoON == true) {
+      desejoONantes = true;
+      numeroUsuarios ++;
+    } else {
+      if(desejoON == false) {
+        desejoONantes = false;
+      }
+    }
+    if(desejoOFFantes == false && desejoOFF == true) {
+      desejoOFFantes = true;
+      numeroUsuarios --;
+    } else {
+      if(desejoOFF == false) {
+        desejoOFFantes = false;
+      }
+    }
     if(millis() - marcaTempo >= 2000) {
       mudaEstado(DESACIONA_ON);
     }
@@ -216,6 +246,22 @@ void estados() {
     case DESACIONA_ON:    // solta o botão (desacionao o relé liga). se não ligar em 5s, liga denovo. se em 4 tentativas não der certo, ativo modo falha
     Serial.println("DESACIONA");
     digitalWrite(pinoDesejoON, LOW);
+    if(desejoONantes == false && desejoON == true) {
+      desejoONantes = true;
+      numeroUsuarios ++;
+    } else {
+      if(desejoON == false) {
+        desejoONantes = false;
+      }
+    }
+    if(desejoOFFantes == false && desejoOFF == true) {
+      desejoOFFantes = true;
+      numeroUsuarios --;
+    } else {
+      if(desejoOFF == false) {
+        desejoOFFantes = false;
+      }
+    }
     if(statusLigado == true){
       contadorTentativas = 0;
       mudaEstado(LIGA_SECADOR);
@@ -242,6 +288,22 @@ void estados() {
 
     case AGUARDA_ALIVIO:  // aguarda o compressor chegar em estado de alivio de pressão
     Serial.println("AGUARDA ALÍVIO");
+    if(desejoONantes == false && desejoON == true) {
+      desejoONantes = true;
+      numeroUsuarios ++;
+    } else {
+      if(desejoON == false) {
+        desejoONantes = false;
+      }
+    }
+    if(desejoOFFantes == false && desejoOFF == true) {
+      desejoOFFantes = true;
+      numeroUsuarios --;
+    } else {
+      if(desejoOFF == false) {
+        desejoOFFantes = false;
+      }
+    }
     if(statusAlivio == true) {
       mudaEstado(ABRE_VALVULA);
     }
@@ -251,6 +313,22 @@ void estados() {
     case ABRE_VALVULA:  // abre a valvula de ar do compressor
     Serial.println("ABRE VÁLVULA");
     abreValvula();
+    if(desejoONantes == false && desejoON == true) {
+      desejoONantes = true;
+      numeroUsuarios ++;
+    } else {
+      if(desejoON == false) {
+        desejoONantes = false;
+      }
+    }
+    if(desejoOFFantes == false && desejoOFF == true) {
+      desejoOFFantes = true;
+      numeroUsuarios --;
+    } else {
+      if(desejoOFF == false) {
+        desejoOFFantes = false;
+      }
+    }
     if(valvulaAberta == true){
       mudaEstado(EM_FUNCIONAMENTO);
     }
@@ -259,15 +337,23 @@ void estados() {
 
     case EM_FUNCIONAMENTO:  // colocar posteriormente: if(horarioatual >= 23h) {numero de usuários = 0} e variações usando RTC
     Serial.println("EM FUNCIONAMENTO");
-    if(desejoON == true) {
+    if(desejoONantes == false && desejoON == true) {
+      desejoONantes = true;
       numeroUsuarios ++;
-      //desejoON = false;
+    } else {
+      if(desejoON == false) {
+        desejoONantes = false;
+      }
     }
-    if(desejoOFF == true) {
+    if(desejoOFFantes == false && desejoOFF == true) {
+      desejoOFFantes = true;
       numeroUsuarios --;
-      //desejoOFF = false;
+    } else {
+      if(desejoOFF == false) {
+        desejoOFFantes = false;
+      }
     }
-    if(numeroUsuarios == 0) {
+    if(numeroUsuarios == 0 || (agora.hour() == 22 && agora.minute() >= 40)){
       mudaEstado(ACIONA_OFF);
     }
     break;
@@ -361,6 +447,11 @@ void leTensao() {
 void setup() {
   Serial.begin(115200);
 
+  if (! rtc.begin()) {                         //Se o RTC nao for inicializado, faz
+    Serial.println("RTC NAO INICIALIZADO");    //Imprime o texto
+    while (1);                                 //Trava o programa
+  }
+
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
@@ -397,6 +488,8 @@ void setup() {
   digitalWrite(pinoLigaSecador, LOW);
   //digitalWrite(pinoDesejoOFFSecador, LOW);
 
+  dht.setup(pinoDHT, DHTesp::DHT11);
+
   fase1.setSensitivity(sensi1);
   fase2.setSensitivity(sensi2);
   fase3.setSensitivity(sensi3);
@@ -418,6 +511,7 @@ void loop() {
   }
 
   leTensao();
+
 // timer da execução da máquina de estados e leitura dos status.
   if (millis() - tempoEstados_Leitura > 50) {
     tempoEstados_Leitura = millis();
@@ -439,13 +533,15 @@ void loop() {
       valvulaAberta = false;
     }*/ //Estaria conflitando com o estado entre aberto e fechado da válvula, então não é necessário.
     
+    agora = rtc.now();                             // Faz a leitura de dados de data e hora
+
     estados();
   }
 
 // timer do envio MQTT. mais lento para evitar problemas.
-  if (millis() - tempoMQTT > 1000) {
+  if (millis() - tempoMQTT > 2000) {
     tempoMQTT = millis();
-
+    leitura = dht.getTempAndHumidity();
     if (client.connected()) {
       //doc["ON"] = statusON;
       //doc["OFF"] = statusOFF;
@@ -459,9 +555,13 @@ void loop() {
       doc["Sobrecarga"] = statusSobrecarga;
       doc["valvulaAberta"] = valvulaAberta;
       doc["Estado"] = estadoAtual;
-      doc["VR"] = fase1Media;
-      doc["VS"] = fase2Media;
-      doc["VT"] = fase3Media;
+      doc["VR"] = fase1Media * 10;   // Não é aceito float no ScadaBR, então é necessário multiplicar por 10 aqui, e lá ele divide.
+      doc["VS"] = fase2Media * 10;
+      doc["VT"] = fase3Media * 10;
+      doc["Temperatura"] = leitura.temperature * 10;
+      doc["Umidade"] = leitura.humidity * 10;
+      doc["statusSecador"] = statusSecador;
+      doc["numeroUsuarios"] = numeroUsuarios;
 
       String payloadJSON;
       serializeJson(doc, payloadJSON);
