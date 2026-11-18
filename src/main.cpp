@@ -67,13 +67,13 @@ DHTesp dht;
 TempAndHumidity leitura;
 
 // SENSOR ZMPT101B
-#define sensi1 645.00f
-#define sensi2 610.00f
-#define sensi3 662.00f
+#define sensi1 486.50f
+#define sensi2 469.75f
+#define sensi3 494.75f
 
-ZMPT101B fase1(34, 60.0);
+ZMPT101B fase1(32, 60.0);
 ZMPT101B fase2(35, 60.0);
-ZMPT101B fase3(32, 60.0);
+ZMPT101B fase3(34, 60.0);
 
 float fase1Media = 0.0;
 float fase2Media = 0.0;
