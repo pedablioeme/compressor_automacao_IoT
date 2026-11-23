@@ -12,14 +12,12 @@ desejoOFF);
 * ao acionamendo do motor responsável pela abertura e fechamento da válvula principal que distribui o ar comprimido ao secador e então à rede, norteados por uma máquina de estados usando a função switch/case; 
 
 * à leitura do status atual do compressor 
-(statusEnergizado,
-statusLigado,
-statusAlivio,
-statusSobrecarga,
-statusON,
-statusOFF,
-statusONSecador,
-statusOFFSecador);
+(statusEnergizado;
+statusLigado;
+statusAlivio;
+statusSobrecarga;
+statusSecador;
+valor de tensão das fases R, S e T; temperatura e umidade da sala; número de usuários ativos);
 
 * ao envio dos estados lidos ao NodeRED usando JSON com protocolo MQTT.
 
