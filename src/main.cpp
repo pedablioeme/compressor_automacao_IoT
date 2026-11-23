@@ -46,7 +46,7 @@ bool statusMqtt = false;
 #define pinoFimdecursoAberto 18
 //#define pinoStatusON 35
 //#define pinoStatusOFF 34
-#define pinoStatusSecador 19  // VERIFICAR SE ESSE PINO É NECESSÁRIO, POIS AO REALIZAR AO LIGAR OU DESLIGAR O SECADOR A VARIÁVEL statusSecador JÁ É ATUALIZADA. APENAS SE ALGUÉM MANUALMENTE FOR LIGAR O SECADOR, ENTÃO O PINO SERIA NECESSÁRIO PARA DETECTAR SE O SECADOR ESTÁ LIGADO OU DESLIGADO.
+#define pinoStatusSecador 19  
 //#define pinoStatusOFFSecador 19 
 #define pinoDHT 33  // pino do sensor DHT
 
@@ -200,7 +200,7 @@ void estados() {
     case DESLIGADO:  //desliga secador e fecha válvula
     Serial.println("DESLIGADO");
     digitalWrite(pinoLigaSecador, LOW);
-    //statusSecador = false;
+    statusSecador = false;
     fechaValvula();
     if (valvulaAberta == false && statusEnergizado == true){
       mudaEstado(ENERGIZADO);
@@ -281,7 +281,7 @@ void estados() {
     case LIGA_SECADOR:  // liga secador
     Serial.println("LIGA SECADOR");
     digitalWrite(pinoLigaSecador, HIGH);
-    //statusSecador = true;
+    statusSecador = true;
     mudaEstado(AGUARDA_ALIVIO);
     break;
 
@@ -388,7 +388,7 @@ void estados() {
     case DESLIGA_SECADOR:
     Serial.println("DESLIGA SECADOR");
     digitalWrite(pinoLigaSecador, LOW);
-    //statusSecador = false;
+    statusSecador = false;
     if(statusLigado == false){
       contadorTentativas = 0;
       mudaEstado(ENERGIZADO);
@@ -535,7 +535,14 @@ void loop() {
     
     agora = rtc.now();                             // Faz a leitura de dados de data e hora
 
+    if(statusEnergizado == false){
+      mudaEstado(DESLIGADO);
+    }
     estados();
+    Serial.print("Desejo ON: ");
+    Serial.print(desejoON);
+    Serial.print(" | Desejo OFF: ");
+    Serial.println(desejoOFF);
   }
 
 // timer do envio MQTT. mais lento para evitar problemas.
@@ -555,11 +562,11 @@ void loop() {
       doc["Sobrecarga"] = statusSobrecarga;
       doc["valvulaAberta"] = valvulaAberta;
       doc["Estado"] = estadoAtual;
-      doc["VR"] = fase1Media * 10;   // Não é aceito float no ScadaBR, então é necessário multiplicar por 10 aqui, e lá ele divide.
-      doc["VS"] = fase2Media * 10;
-      doc["VT"] = fase3Media * 10;
-      doc["Temperatura"] = leitura.temperature * 10;
-      doc["Umidade"] = leitura.humidity * 10;
+      doc["VR"] = round(fase1Media * 10);   // Não é aceito float no ScadaBR, então é necessário multiplicar por 10 aqui, e lá ele divide.
+      doc["VS"] = round(fase2Media * 10);
+      doc["VT"] = round(fase3Media * 10);
+      doc["Temperatura"] = round(leitura.temperature * 10);
+      doc["Umidade"] = round(leitura.humidity * 10);
       doc["statusSecador"] = statusSecador;
       doc["numeroUsuarios"] = numeroUsuarios;
 
