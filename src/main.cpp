@@ -493,6 +493,8 @@ void setup() {
   fase1.setSensitivity(sensi1);
   fase2.setSensitivity(sensi2);
   fase3.setSensitivity(sensi3);
+
+  //rtc.adjust(DateTime(2026, 11, 25, 14, 38, 40));//Ajusta o tempo do RTC para a data e hora definida pelo usuario.
 }
 
 void loop() {
@@ -511,6 +513,11 @@ void loop() {
   }
 
   leTensao();
+  Serial.print(agora.hour());
+  Serial.print(":");
+  Serial.print(agora.minute());
+  Serial.print(":");
+  Serial.println(agora.second());
 
 // timer da execução da máquina de estados e leitura dos status.
   if (millis() - tempoEstados_Leitura > 50) {
